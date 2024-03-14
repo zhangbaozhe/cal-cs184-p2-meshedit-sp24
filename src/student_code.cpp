@@ -1,6 +1,14 @@
 #include "student_code.h"
 #include "mutablePriorityQueue.h"
 
+#include <chrono>
+#define START_TICK auto t1 = chrono::high_resolution_clock::now()
+#define END_TICK do { \
+    auto t2 = chrono::high_resolution_clock::now(); \
+    chrono::duration<double, std::milli> ms_double = t2 - t1; \
+    cout << __FUNCTION__ << " using " << ms_double.count() << " ms" << endl; \
+  } while(0)
+
 using namespace std;
 
 namespace CGL
@@ -16,7 +24,15 @@ namespace CGL
   std::vector<Vector2D> BezierCurve::evaluateStep(std::vector<Vector2D> const &points)
   { 
     // TODO Part 1.
-    return std::vector<Vector2D>();
+    std::vector<Vector2D> results;
+
+    // Perform de Casteljau's algorithm
+    for (size_t i = 0; i < points.size() - 1; i++) {
+      Vector2D interpolated_point = (1 - t) * points[i] + t * points[i + 1];
+      results.emplace_back(std::move(interpolated_point));
+    }
+
+    return results;
   }
 
   /**
@@ -30,7 +46,31 @@ namespace CGL
   std::vector<Vector3D> BezierPatch::evaluateStep(std::vector<Vector3D> const &points, double t) const
   {
     // TODO Part 2.
-    return std::vector<Vector3D>();
+
+    std::vector<Vector3D> results;
+
+    for (size_t i = 0; i < points.size() - 1; i++) {
+      Vector3D interpolated_point = (1 - t) * points[i] + t * points[i + 1];
+      results.emplace_back(std::move(interpolated_point));
+    }
+    return results;
+  }
+
+  /**
+   * @brief Compile-time binomial coefficient
+   * 
+   * @param n 
+   * @param k 
+   * @return constexpr size_t 
+   */
+  constexpr size_t binomial_coefficient(size_t n, size_t k) noexcept {
+    return 
+      (k > n) ? 0 : 
+      (k == 0 || k == n) ? 1 :
+      (k == 1 || k == n - 1) ? n : 
+      (k + k < n) ? 
+        (binomial_coefficient(n-1, k-1) * n) / k : 
+        (binomial_coefficient(n-1, k) * n) / (n-k);
   }
 
   /**
@@ -43,7 +83,26 @@ namespace CGL
   Vector3D BezierPatch::evaluate1D(std::vector<Vector3D> const &points, double t) const
   {
     // TODO Part 2.
-    return Vector3D();
+
+
+    Vector3D result;
+#ifdef IS_ALGEBRAIC
+    const size_t n = points.size() - 1;
+
+    // directly using the algebraic form
+    for (size_t i = 0; i < points.size(); i++) {
+      
+      result += (double)binomial_coefficient(n, i) * pow(1-t, n-i) * pow(t, i) * points[i];
+    }
+#else
+    std::vector<Vector3D> temp = points;
+    for (size_t i = 0; i < points.size() - 1; i++) {
+      temp = evaluateStep(temp, t);
+    }    
+    result = temp[0];
+
+#endif
+    return result;
   }
 
   /**
@@ -56,7 +115,16 @@ namespace CGL
   Vector3D BezierPatch::evaluate(double u, double v) const 
   {  
     // TODO Part 2.
-    return Vector3D();
+    // START_TICK;
+    std::vector<Vector3D> sub_control_points; 
+    for (const auto & row : controlPoints) {
+      sub_control_points.emplace_back(std::move(
+          evaluate1D(row, u)
+      ));
+    }
+    auto result = evaluate1D(sub_control_points, v);
+    // END_TICK;
+    return result;
   }
 
   Vector3D Vertex::normal( void ) const

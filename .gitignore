@@ -1,6 +1,5 @@
 .DS_Store
 build/
 .vs
-*.json
 out/
 Debug/

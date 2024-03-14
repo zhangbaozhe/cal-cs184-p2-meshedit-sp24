@@ -1,11 +1,12 @@
 cmake_minimum_required(VERSION 2.8)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 project(ColladaViewer)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_STANDARD 17)
 
 #-------------------------------------------------------------------------------
 # Build options
 #-------------------------------------------------------------------------------
-option(BUILD_LIBCGL "Build with libCGL"         ON)
+option(BUILD_LIBCGL    "Build with libCGL"         ON)
 option(BUILD_DEBUG     "Build with debug settings"    OFF)
 option(BUILD_DOCS      "Build documentation"          OFF)
 

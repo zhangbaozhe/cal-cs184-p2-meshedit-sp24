@@ -3,10 +3,12 @@
 <head>
 <style>
   body {
-    background-color: white;
-    padding: 100px;
-    width: 1000px;
-    margin: auto;
+    padding: 0px;
+    width: 100%;
+    max-width: 1000px;
+    margin-right: auto;
+    margin-left: auto;
+    border-collapse: separate;
     text-align: left;
     font-weight: 300;
     font-family: 'Open Sans', sans-serif;
@@ -15,33 +17,22 @@
   h1, h2, h3, h4 {
     font-family: 'Source Sans Pro', sans-serif;
   }
-  kbd {
-    color: #121212;
+  pre {
+    white-space: pre-wrap;
+    background: hsl(30,80%,90%);
   }
 </style>
-<title>CS 184 Mesh Edit</title>
+<title>Computer Graphics Rasterizer</title>
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
 <link href="https://fonts.googleapis.com/css?family=Open+Sans|Source+Sans+Pro" rel="stylesheet">
-
-<script>
-  MathJax = {
-    tex: {
-      inlineMath: [['$', '$'], ['\\(', '\\)']]
-    }
-  };
-</script>
-<script id="MathJax-script" async
-  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
-</script>
-
 </head>
 
 
 <body>
 
-<h1 align="middle">CS 184: Computer Graphics and Imaging, Spring 2018</h1>
-<h1 align="middle">Project 2: Mesh Edit</h1>
-<h2 align="middle">YOUR NAME</h2>
+<h1 align="middle">Computer Graphics, Spring 2024</h1>
+<h1 align="middle">Homework 3: Rasterizer</h1>
+<h2 align="middle">Baozhe ZHANG (SSE, 119010421)</h2>
 
 <br><br>
 
@@ -49,263 +40,239 @@
 
 <h2 align="middle">Overview</h2>
 <p>
-    YOUR RESPONSE GOES HERE
+  In this assignment, we were asked to achieve a software
+  rasterizer including features such as drawing triangles, 
+  supersampling, hierarchical transforms, and texture mapping 
+  with antialiasing. 
+  I have achieved the following tasks:
+  <ul>
+    <li>Task 1: Drawing single-color triangles</li>
+    <li>Task 2: Antialiasing by supersampling</li>
+    <li>Task 3: Transformations</li>
+    <li>Task 4: Barycentric color interpolation</li>
+    <li>Task 5: "Pixel sampling" for texture mappingexture mapping</li>
+    <li>Task 6: "Level sampling" with mipmaps for texture mapping</li>
+  </ul>
+  
 </p>
-<br>
+
+<h2 align="middle">Section I: Rasterization</h2>
+
+<h3 align="middle">Part 1: Drawing single-color triangles</h3>
 
 
-<h2 align="middle">Section I: Bezier Curves and Surfaces</h2>
-
-<h3 align="middle">Part 1: Bezier Curves with 1D de Casteljau Subdivision</h3>
-
-
-<b>
-  Briefly explain de Casteljau's algorithm and how you implemented it in order to evaluate Bezier curves.
-</b>
 <p>
-    YOUR RESPONSE GOES HERE
-</p>
-<br>
+  In this task, I have achieved basic rasterization methods for single-color triangles.
+  
+  For this part, the basic procedures to rasterize a triangle with a single color are: defining the rotation of the vertices (i.e., a -> b -> c), generating a bounding box for the triangle, performing in-triangle test and setting the given color for each pixel in the triangle.
 
-
-<b>
-  Take a look at the provided .bzc files and create your own Bezier curve with 6 control points of your choosing. Use this Bezier curve for your screenshots below.
-</b>
-<p>
-    YOUR RESPONSE GOES HERE
+  The achieved basic implementation is exactly that checks each sample within the bounding box. 
 </p>
-<!-- Example of including a single figure -->
+
 <div align="middle">
-  <img src="images/your_file.png" align="middle" width="50%">
+  <img src="images/task1.png" align="middle" width="800px" />
+  <figcaption align="middle">
+    <b>Figure 1:</b> Triangle rasterization for solid triangles of different forms and colors. The toggle parameters are set to default (i.e., 1x sample rate, nearest pixel sampling, etc.). Note that this basic implementation suffers from aliasing (jaggies) as in the zoomed view of the green triangle corner.
 </div>
-<br>
 
-<b>
-  Show screenshots of each step / level of the evaluation from the original control points down to the final evaluated point. Press <kbd>E</kbd> to step through. Toggle <kbd>C</kbd> to show the completed Bezier curve as well.
-</b>
-<!-- Example of including multiple figures -->
+
+<h3 align="middle">Part 2: Antialiasing triangles</h3>
+
+<p>
+  In this part, I have achieved basic supersampling techniques to reduce the aliasing effects in the rasterized images.
+  
+  The basic algorithm for this part is simple. Suppose we have a target image with the size of width x height. The data structure for the implemented algorithm is to simply allocate a larger sample buffer, i.e.,  
+  <pre><code>
+    std::vector&ltColor&gt sample_buffer(sample_rate * (width * height));
+  </code></pre>
+  Each "big" sampled pixel is divided into a square with length of <code>sqrt(sample_rate)</code> with number of <code>sample_rate</code> "sub" supersample "small" pixels.
+
+  The different triangle rasterization processes are performed on this 1d <code>sample_buffer</code>. For each frame, when the rasterization ends, the method 
+  <pre><code>
+    RasterizerImp::resolve_to_framebuffer()
+  </code></pre>
+  will be called. In this method, the 2D average filter is applied to the "enlarged" sample buffer. For each supersampling group (i.e., the square area), this method will calculate a averaged color information based on the "sub" pixels in this group and set this color to the original pixel location (via setting the <code>unsigned char</code> R, G, and B values to  <code>rgb_framebuffer_target</code>).
+  For this part, the tricky part is to get the index of each "sub" supersampled pixel right.
+</p>
+
 <div align="middle">
-  <table style="width:100%">
-    <tr align="center">
+  <table width="100%">
+    <tr>
       <td>
-        <img src="images/your_file.png" align="middle" width="400px"/>
-        <figcaption>Level 0</figcaption>
+        <img src="images/task2-1.png" align="middle" width="400px"/>
+        <figcaption align="middle">
+          <b>Figure 2a:</b> Sample rate = 1. "Jaggies" are clear at the edge of the triangles.
+        </figcaption>
       </td>
       <td>
-        <img src="images/your_file.png" align="middle" width="400px"/>
-        <figcaption>Level 1</figcaption>
-      </td>
-    </tr>
-    <br>
-    <tr align="center">
-      <td>
-        <img src="images/your_file.png" align="middle" width="400px"/>
-        <figcaption>Level 2</figcaption>
-      </td>
-      <td>
-        <img src="images/your_file.png" align="middle" width="400px"/>
-        <figcaption>Level 3</figcaption>
+        <img src="images/task2-2.png" align="middle" width="400px"/>
+        <figcaption align="middle">
+          <b>Figure 2b:</b> Sample rate = 4. Supersampling reduces the aliasing effect.
+        </figcaption>
       </td>
     </tr>
     <br>
-    <tr align="center">
+    <tr>
       <td>
-        <img src="images/your_file.png" align="middle" width="400px"/>
-        <figcaption>Level 4</figcaption>
+        <img src="images/task2-3.png" align="middle" width="400px"/>
+        <figcaption align="middle">
+          <b>Figure 2c:</b> Sample rate = 9. Higher supersampling rate further reduces the aliasing.
+        </figcaption>
+      </td>
+      <td>
+        <img src="images/task2-4.png" align="middle" width="400px"/>
+        <figcaption align="middle">
+          <b>Figure 2d:</b> Sample rate = 16.
+        </figcaption>
       </td>
     </tr>
   </table>
 </div>
-<br>
 
 
-<b>
-  Show a screenshot of a slightly different Bezier curve by moving the original control points around and modifying the parameter \(t\) via mouse scrolling.
-</b>
+
+<h3 align="middle">Part 3: Transforms</h3>
+
 <p>
-    YOUR RESPONSE GOES HERE
-</p>  
-<br>
-
-
-<h3 align="middle">Part 2: Bezier Surfaces with Separable 1D de Casteljau</h3>
-<b>
-  Briefly explain how de Casteljau algorithm extends to Bezier surfaces and how you implemented it in order to evaluate Bezier surfaces.
-</b>
-<p>
-    YOUR RESPONSE GOES HERE
+  In this part, I made a dancing cube man by changing its legs' and arm's poses. Here's the screenshot.
 </p>
-<br>
+
+<div align="middle">
+  <img src="images/task3.png" align="middle" width="800px" />
+  <figcaption align="middle">
+    <b>Figure 3:</b> Dancing cube man.
+</div>
 
 
-<b>
-  Show a screenshot of bez/teapot.bez (not .dae) evaluated by your implementation.
-</b>
+<h2 align="middle">Section II: Sampling</h2>
+
+<h3 align="middle">Part 4: Barycentric coordinates</h3>
+
 <p>
-    YOUR RESPONSE GOES HERE
+  The barycentric coordinates describe a coordinating system with its x and y axis as the two edge vectors of a triangle. Suppose we have a triangle with vertices a, b, and c. We can construct a coordinate system with vector a -> b and vector a -> c. By this definition, if a point is in the edge of b -> c then the sum of its coordinate must be 1. 
+
+  The barycentric interpolation is a linear combination with the weights of the barycentric coordinate indices and other quantities such as the colors of the vertices on a triangle.
+
+  Below shows two figures of an interpolated triangle and a color wheel.
 </p>
-<br>
+
+<div align="middle">
+  <table width="100%">
+    <tr>
+      <td>
+        <img src="images/task4-1.png" align="middle" width="400px"/>
+        <figcaption align="middle">
+          <b>Figure 4a:</b> A single triangle colored using barycentric coordinates. The reference values are the unitary RGB channels (1,0,0), (0,1,0), (0,0,1) located at each of the vertices.
+        </figcaption>
+      </td>
+      <td>
+        <img src="images/task4-2.png" align="middle" width="400px"/>
+        <figcaption align="middle">
+          <b>Figure 4b:</b> A color wheel composed by small triangles with different colors located on the vertices.
+        </figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
 
 
-<h2 align="middle">Section II: Triangle Meshes and Half-Edge Data Structure</h2>
+<h3 align="middle">Part 5: "Pixel sampling" for texture mapping</h3>
 
-<h3 align="middle">Part 3: Area-Weighted Vertex Normals</h3>
-
-<b>
-  Briefly explain how you implemented the area-weighted vertex normals.
-</b>
 <p>
-    YOUR RESPONSE GOES HERE
+  Given the UV coordinates of the vertices of a triangle, the pixel sampling for texture mapping is to sample colors for the given triangle and map the colors on it.
+  The UV coordinates are defined in the texture space. 
+
+  We CANNOT do (1) get the color on the 3 vertices by sample at the texture map and (2) fill the triangle with barycentric interpolated color from the 3 vertices. This is WRONG, since the most of the texture information for this triangle is lost, because on cannot determine the interpolated color is the wanted texture.
+
+  Instead, the sampling procedure is performed in the texture map space. The UV coordinate of the sample point in the triangle should first be interpolated by using barycentric interpolation. Then for this interpolated UV coordinated, it can be sampled on the texture map to get the desired color.
+
+  The process of getting the desired color needs sampling on the (discrete) texture map. For a given (continuous) UV coordinate, a simple way, nearest method, is to find the "nearest" point of the texture map, e.g., UV (element between 0 and 1) -> (400.1, 500.8) (multiplied with the width and height) -> (400, 501). This is simple but can potentially cause "jaggies".
+  
+  Similar to the ideas of the average filter in the supersampling, one can apply an average filter on the texture map to get a weighted averaged color in the pixel sampling process to achieve more smooth image. Bilinear method is to linearly interpolate the four texel around a given UV coordinate. The corresponding weights are the distance of the four nearest texels' distance w.r.t. the given UV coordinate.
 </p>
-<br>
 
+<div align="middle">
+  <table width="100%">
+    <tr>
+      <td>
+        <img src="images/task5-n-1.png" align="middle" width="400px"/>
+        <figcaption align="middle">
+          <b>Figure 5a:</b> Nearest sampling. Sample rate = 1. "Jaggies" are clear.
+        </figcaption>
+      </td>
+      <td>
+        <img src="images/task5-b-1.png" align="middle" width="400px"/>
+        <figcaption align="middle">
+          <b>Figure 5b:</b> Bilinear sampling. Sample rate = 1. Aliasing effects are reduced.
+        </figcaption>
+      </td>
+    </tr>
+    <br>
+    <tr>
+      <td>
+        <img src="images/task5-n-16.png" align="middle" width="400px"/>
+        <figcaption align="middle">
+          <b>Figure 5c:</b> Nearest sampling. Sample rate = 16.
+        </figcaption>
+      </td>
+      <td>
+        <img src="images/task5-b-16.png" align="middle" width="400px"/>
+        <figcaption align="middle">
+          <b>Figure 5d:</b> Bilinear sampling. Sample rate = 16.
+        </figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
 
-<b>
-  Show screenshots of dae/teapot.dae (not .bez) comparing teapot shading with and without vertex normals. Use <kbd>Q</kbd> to toggle default flat shading and Phong shading.
-</b>
 <p>
-    YOUR RESPONSE GOES HERE
+  From the above figures, we can see that at a low sample rate, the bilinear method clearly outperforms nearest sampling method reducing the antialiasing effects. At a higher sample rate (e.g., 16), the two methods have smaller difference since the supersampling method already applies a averaging filter on the screen space, making the bilinear method not that distinguishable.
 </p>
-<br>
 
 
-<h3 align="middle">Part 4: Edge Flip</h3>
-<b>
-  Briefly explain how you implemented the edge flip operation and describe any interesting implementation / debugging tricks you have used.
-</b>
+<h3 align="middle">Part 6: "Level sampling" with mipmaps for texture mapping</h3>
+
 <p>
-    YOUR RESPONSE GOES HERE
+  Level sampling is that we store different level of resolution of the textures of an image to the memory first and then selecting the corresponding level based on the size of the sampling area in the texture space (or how much the sampling area across the texture space). If the sampling are is large (i.e., one pixel sampling on large texture area), we may select a low resolution texture and save the computation of applying the average filter. 
+
+  Level sampling needs more memory space to avoid computation for antialiasing. Pixel sampling though needs more computation for antialiasing but less memory space.
 </p>
-<br>
+
+<div align="middle">
+  <table width="100%">
+    <tr>
+      <td>
+        <img src="images/task6-ln-pn.png" align="middle" width="400px"/>
+        <figcaption align="middle">
+          <b>Figure 6a:</b> LSM = Nearest; PSM = Nearest.
+        </figcaption>
+      </td>
+      <td>
+        <img src="images/task6-ln-pb.png" align="middle" width="400px"/>
+        <figcaption align="middle">
+          <b>Figure 6b:</b> LSM = Nearest; PSM = Bilinear.
+        </figcaption>
+      </td>
+    </tr>
+    <br>
+    <tr>
+      <td>
+        <img src="images/task6-lb-pn.png" align="middle" width="400px"/>
+        <figcaption align="middle">
+          <b>Figure 6c:</b> LSM = Bilinear; PSM = Nearest.
+        </figcaption>
+      </td>
+      <td>
+        <img src="images/task6-lb-pb.png" align="middle" width="400px"/>
+        <figcaption align="middle">
+          <b>Figure 6d:</b> LSM = Bilinear; PSM = Bilinear.
+        </figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
 
 
-<b>
-  Show screenshots of the teapot before and after some edge flips.
-</b>
-<p>
-    YOUR RESPONSE GOES HERE
-</p>
-<br>
-
-
-<b>
-    Write about your eventful debugging journey, if you have experienced one.
-</b>
-<p>
-    YOUR RESPONSE GOES HERE
-</p>
-<br>
-
-
-<h3 align="middle">Part 5: Edge Split</h3>
-<b>
-  Briefly explain how you implemented the edge split operation and describe any interesting implementation / debugging tricks you have used.
-</b>
-<p>
-    YOUR RESPONSE GOES HERE
-</p>
-<br>
-
-
-<b>
-    Show screenshots of a mesh before and after some edge splits. 
-</b>
-<p>
-    YOUR RESPONSE GOES HERE
-</p>
-<br>
-
-
-<b>
-    Show screenshots of a mesh before and after a combination of both edge splits and edge flips.
-</b>
-<p>
-    YOUR RESPONSE GOES HERE
-</p>
-<br>
-
-
-<b>
-    Write about your eventful debugging journey, if you have experienced one.
-</b>
-<p>
-    YOUR RESPONSE GOES HERE
-</p>
-<br>
-
-
-<b>
-    If you have implemented support for boundary edges, show screenshots of your implementation properly handling split operations on boundary edges.
-</b>
-<p>
-    YOUR RESPONSE GOES HERE
-</p>
-<br>
-
-
-<h3 align="middle">Part 6: Loop Subdivision for Mesh Upsampling</h3>
-<b>
-  Briefly explain how you implemented the loop subdivision and describe any interesting implementation / debugging tricks you have used.
-</b>
-<p>
-    YOUR RESPONSE GOES HERE
-</p>
-<br>
-
-
-<b>
-  Take some notes, as well as some screenshots, of your observations on how meshes behave after loop subdivision. What happens to sharp corners and edges? Can you reduce this effect by pre-splitting some edges?
-</b>
-<p>
-    YOUR RESPONSE GOES HERE
-</p>
-<br>
-
-
-<b>
-  Load dae/cube.dae. Perform several iterations of loop subdivision on the cube. Notice that the cube becomes slightly asymmetric after repeated subdivisions. Can you pre-process the cube with edge flips and splits so that the cube subdivides symmetrically? Document these effects and explain why they occur. Also explain how your pre-processing helps alleviate the effects.
-</b>
-<p>
-    YOUR RESPONSE GOES HERE
-</p>
-<br>
-
-
-<b>
-    If you have implemented any extra credit extensions, explain what you did and document how they work with screenshots.
-</b>
-<p>
-    YOUR RESPONSE GOES HERE
-</p>
-<br>
-
-
-<h3 align="middle">Part 7 (Optional, Possible Extra Credit)</h3>
-<b>
-    Save your best polygon mesh as partsevenmodel.dae in your docs folder and show us a screenshot of the mesh in your write-up.
-</b>
-<p>
-    YOUR RESPONSE GOES HERE
-</p>
-<br>
-
-
-<b>
-    Include a series of screenshots showing your original mesh and your mesh after one and two rounds of subdivision. If you have used custom shaders, include screenshots of your mesh with those shaders applied as well.
-</b>
-<p>
-    YOUR RESPONSE GOES HERE
-</p>
-<br>
-
-
-<b>
-    Describe what you have done to enhance your mesh beyond the simple humanoid mesh described in the tutorial.
-</b>
-<p>
-    YOUR RESPONSE GOES HERE
-</p>
-<br>
 
 
 </body>
