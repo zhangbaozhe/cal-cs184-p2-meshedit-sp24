@@ -105,6 +105,23 @@ namespace CGL
     return result;
   }
 
+  // helper function for getting the area of a face
+  double area(const FaceIter &f) {
+    HalfedgeCIter h = f->halfedge();
+    Vector3D a = h->vertex()->position;
+    Vector3D b = h->next()->vertex()->position;
+    Vector3D c = h->next()->next()->vertex()->position;
+    return cross(b - a, c - a).norm() / 2;
+  }
+
+  double area(FaceCIter f) {
+    HalfedgeCIter h = f->halfedge();
+    Vector3D a = h->vertex()->position;
+    Vector3D b = h->next()->vertex()->position;
+    Vector3D c = h->next()->next()->vertex()->position;
+    return cross(b - a, c - a).norm() / 2;
+  }
+
   /**
    * Evaluates the Bezier patch at parameter (u, v)
    *
@@ -133,14 +150,88 @@ namespace CGL
     // Returns an approximate unit normal at this vertex, computed by
     // taking the area-weighted average of the normals of neighboring
     // triangles, then normalizing.
-    return Vector3D();
+
+    Vector3D normal(0, 0, 0);
+
+    // Get the halfedge of the vertex
+    HalfedgeCIter h = this->halfedge();
+
+    do {
+      
+      FaceCIter f = h->face();
+      double area = ::area(f);
+      normal += area * f->normal();
+
+      h = h->twin()->next();
+    } while(h != this->halfedge());
+
+    return normal.unit();
   }
 
   EdgeIter HalfedgeMesh::flipEdge( EdgeIter e0 )
   {
     // TODO Part 4.
     // This method should flip the given edge and return an iterator to the flipped edge.
-    return EdgeIter();
+
+    if (e0->isBoundary())
+      return e0;
+
+    auto h0 = e0->halfedge();
+    auto h1 = h0->next();
+    auto h2 = h1->next();
+    auto h3 = h0->twin();
+    auto h4 = h3->next();
+    auto h5 = h4->next();
+
+    auto h6 = h1->twin();
+    auto h7 = h2->twin();
+    auto h8 = h4->twin();
+    auto h9 = h5->twin();
+
+    auto v0 = h0->vertex();
+    auto v1 = h3->vertex();
+    auto v2 = h2->vertex();
+    auto v3 = h5->vertex();
+
+    auto e1 = h1->edge();
+    auto e2 = h2->edge();
+    auto e3 = h4->edge();
+    auto e4 = h5->edge();
+
+    auto f0 = h0->face();
+    auto f1 = h3->face();
+
+    // changing
+    h0->setNeighbors(h1, h3, v3, e0, f0);
+    h1->setNeighbors(h2, h7, v2, e2, f0);
+    h2->setNeighbors(h0, h8, v0, e3, f0);
+
+    h3->setNeighbors(h4, h0, v2, e0, f1);
+    h4->setNeighbors(h5, h9, v3, e4, f1);
+    h5->setNeighbors(h3, h6, v1, e1, f1);
+
+    h6->setNeighbors(h6->next(), h5, v2, e1, h6->face());
+    h7->setNeighbors(h7->next(), h1, v0, e2, h7->face());
+    h8->setNeighbors(h8->next(), h2, v3, e3, h8->face());
+    h9->setNeighbors(h9->next(), h4, v1, e4, h9->face());
+
+    v0->halfedge() = h2;
+    v1->halfedge() = h5;
+    v2->halfedge() = h1;
+    v3->halfedge() = h4;
+
+    e0->halfedge() = h0;
+    e1->halfedge() = h5;
+    e2->halfedge() = h1;
+    e3->halfedge() = h2;
+    e4->halfedge() = h4;
+    
+    f0->halfedge() = h0;
+    f1->halfedge() = h3;
+
+
+    return e0;
+
   }
 
   VertexIter HalfedgeMesh::splitEdge( EdgeIter e0 )
@@ -148,7 +239,78 @@ namespace CGL
     // TODO Part 5.
     // This method should split the given edge and return an iterator to the newly inserted vertex.
     // The halfedge of this vertex should point along the edge that was split, rather than the new edges.
-    return VertexIter();
+    if (e0->isBoundary())
+      return e0->halfedge()->vertex();
+
+    auto h0 = e0->halfedge();
+    auto h1 = h0->next();
+    auto h2 = h1->next();
+    auto h3 = h0->twin();
+    auto h4 = h3->next();
+    auto h5 = h4->next();
+
+    auto h6 = h1->twin();
+    auto h7 = h2->twin();
+    auto h8 = h4->twin();
+    auto h9 = h5->twin();
+
+    auto v0 = h0->vertex();
+    auto v1 = h3->vertex();
+    auto v2 = h2->vertex();
+    auto v3 = h5->vertex();
+
+    auto e1 = h1->edge();
+    auto e2 = h2->edge();
+    auto e3 = h4->edge();
+    auto e4 = h5->edge();
+
+    auto f0 = h0->face();
+    auto f1 = h3->face();
+
+    // allocating
+    auto v_new0 = newVertex();
+    auto e_new0 = newEdge();
+    auto e_new1 = newEdge();
+    auto e_new2 = newEdge();
+    auto f_new0 = newFace();
+    auto f_new1 = newFace();
+    auto h_new0 = newHalfedge();
+    auto h_new1 = newHalfedge();
+    auto h_new2 = newHalfedge();
+    auto h_new3 = newHalfedge();
+    auto h_new4 = newHalfedge();
+    auto h_new5 = newHalfedge();
+
+    // modifying
+    h1->setNeighbors(h_new0, h6, v1, e1, f0);
+    h_new0->setNeighbors(h0, h_new1, v2, e_new1, f0);
+    h0->setNeighbors(h1, h3, v_new0, e0, f0);
+
+    h3->setNeighbors(h_new5, h0, v1, e0, f1);
+    h_new5->setNeighbors(h5, h_new4, v_new0, e_new2, f1);
+    h5->setNeighbors(h3, h9, v3, e4, f1);
+
+    h_new1->setNeighbors(h2, h_new0, v_new0, e_new1, f_new0);
+    h2->setNeighbors(h_new2, h7, v2, e2, f_new0);
+    h_new2->setNeighbors(h_new1, h_new3, v0, e_new0, f_new0);
+
+    h_new3->setNeighbors(h4, h_new2, v_new0, e_new0, f_new1);
+    h4->setNeighbors(h_new4, h8, v0, e3, f_new1);
+    h_new4->setNeighbors(h_new3, h_new5, v3, e_new2, f_new1);
+
+    v_new0->position = (v0->position + v1->position) / 2;
+    v_new0->halfedge() = h_new1;
+
+    e_new0->halfedge() = h_new2;
+    e_new1->halfedge() = h_new0;
+    e_new2->halfedge() = h_new4;
+
+    f0->halfedge() = h0;
+    f1->halfedge() = h3;
+    f_new0->halfedge() = h_new1;
+    f_new1->halfedge() = h_new3;
+
+    return v_new0;
   }
 
 
