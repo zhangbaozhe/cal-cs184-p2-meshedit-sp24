@@ -160,6 +160,10 @@ namespace CGL
     do {
       
       FaceCIter f = h->face();
+      if (f->isBoundary()) {
+        h = h->twin()->next();
+        continue;
+      }
       double area = ::area(f);
       normal += area * f->normal();
 
@@ -235,11 +239,18 @@ namespace CGL
 
   }
 
-  VertexIter HalfedgeMesh::splitEdge( EdgeIter e0 )
-  {
-    // TODO Part 5.
-    // This method should split the given edge and return an iterator to the newly inserted vertex.
-    // The halfedge of this vertex should point along the edge that was split, rather than the new edges.
+  /**
+   * @brief Helper function with an 
+   * extra parameter to reserve the new added edge for later to set its `isNew` 
+   * to false, because it is split from an old edge.
+   * 
+   * @param mesh 
+   * @param e0 
+   * @param e_reserve 
+   * @param is_set_new
+   * @return VertexIter 
+   */
+  VertexIter splitEdgeWithReserve(HalfedgeMesh& mesh, EdgeIter e0, EdgeIter &e_reserve, bool is_set_new = true) {
     if (e0->isBoundary()) {
       auto h0 = e0->halfedge();
       auto h1 = h0->next();
@@ -260,28 +271,34 @@ namespace CGL
       // assert(f1->isBoundary());
 
       // allocating
-      auto v_new0 = newVertex();
+      auto v_new0 = mesh.newVertex();
 
-      auto e_new0 = newEdge();
-      auto e_new1 = newEdge();
+      auto e_new0 = mesh.newEdge();
+      auto e_new1 = mesh.newEdge();
 
-      auto f_new0 = newFace();
+      auto f_new0 = mesh.newFace();
 
-      auto h_new0 = newHalfedge();
-      auto h_new1 = newHalfedge();
-      auto h_new2 = newHalfedge();
-      auto h_new3 = newHalfedge();
+      auto h_new0 = mesh.newHalfedge();
+      auto h_new1 = mesh.newHalfedge();
+      auto h_new2 = mesh.newHalfedge();
+      auto h_new3 = mesh.newHalfedge();
 
       // modifying
       v_new0->position = (v0->position + v1->position) / 2;
       v_new0->halfedge() = h_new2;
+      v_new0->isNew = is_set_new;
       v0->halfedge() = h0;
       v1->halfedge() = h1;
       v2->halfedge() = h2;
 
       e0->halfedge() = h0;
       e_new0->halfedge() = h_new0;
+      e_new0->isNew = is_set_new;
       e_new1->halfedge() = h_new2;
+      e_new1->isNew = is_set_new; 
+
+      // e_reserve for later use
+      e_reserve = e_new1;
 
       f0->halfedge() = h0;
       f_new0->halfedge() = h_new2;
@@ -326,18 +343,18 @@ namespace CGL
     auto f1 = h3->face();
 
     // allocating
-    auto v_new0 = newVertex();
-    auto e_new0 = newEdge();
-    auto e_new1 = newEdge();
-    auto e_new2 = newEdge();
-    auto f_new0 = newFace();
-    auto f_new1 = newFace();
-    auto h_new0 = newHalfedge();
-    auto h_new1 = newHalfedge();
-    auto h_new2 = newHalfedge();
-    auto h_new3 = newHalfedge();
-    auto h_new4 = newHalfedge();
-    auto h_new5 = newHalfedge();
+    auto v_new0 = mesh.newVertex();
+    auto e_new0 = mesh.newEdge();
+    auto e_new1 = mesh.newEdge();
+    auto e_new2 = mesh.newEdge();
+    auto f_new0 = mesh.newFace();
+    auto f_new1 = mesh.newFace();
+    auto h_new0 = mesh.newHalfedge();
+    auto h_new1 = mesh.newHalfedge();
+    auto h_new2 = mesh.newHalfedge();
+    auto h_new3 = mesh.newHalfedge();
+    auto h_new4 = mesh.newHalfedge();
+    auto h_new5 = mesh.newHalfedge();
 
     // modifying
     h1->setNeighbors(h_new0, h6, v1, e1, f0);
@@ -358,10 +375,23 @@ namespace CGL
 
     v_new0->position = (v0->position + v1->position) / 2;
     v_new0->halfedge() = h_new1;
+    v_new0->isNew = is_set_new;
+    v1->halfedge() = h3;
+    v2->halfedge() = h2;
+    v0->halfedge() = h_new2;
+    v3->halfedge() = h5;
 
+    e0->halfedge() = h0;
     e_new0->halfedge() = h_new2;
+    e_new0->isNew = is_set_new;
+
+    // later use
+    e_reserve = e_new0;
+
     e_new1->halfedge() = h_new0;
+    e_new1->isNew = is_set_new;
     e_new2->halfedge() = h_new4;
+    e_new2->isNew = is_set_new;
 
     f0->halfedge() = h0;
     f1->halfedge() = h3;
@@ -369,9 +399,56 @@ namespace CGL
     f_new1->halfedge() = h_new3;
 
     return v_new0;
+  } 
+
+  VertexIter HalfedgeMesh::splitEdge( EdgeIter e0 )
+  {
+    // TODO Part 5.
+    // This method should split the given edge and return an iterator to the newly inserted vertex.
+    // The halfedge of this vertex should point along the edge that was split, rather than the new edges.
+    EdgeIter dummy;
+    return splitEdgeWithReserve(*this, e0, dummy, false);
   }
 
+  // helper function
+  bool is_flip_ok(const EdgeIter &e) {
+    if (e->isBoundary()) return false;
+    if (!e->isNew) return false;
 
+    /*
+     *
+     * o ----------- n
+     * |  \          |
+     * |    \        |   => OK to flip 
+     * |       e     |
+     * |          \  |
+     * n ----------- n
+     * 
+     * n ----------- *
+     * |  \          |
+     * |    \        |   => Not OK to flip 
+     * |       e     |
+     * |          \  |
+     * * ----------- n
+     * 
+     * o ----------- n
+     * |  \          |
+     * |    \        |   => Not OK to flip 
+     * |       e     |
+     * |          \  |
+     * o ----------- n
+     * 
+     */ 
+
+    auto v0 = e->halfedge()->vertex();
+    auto v1 = e->halfedge()->twin()->vertex();
+    auto v2 = e->halfedge()->next()->next()->vertex();
+    auto v3 = e->halfedge()->twin()->next()->next()->vertex();
+
+    if (v3->isNew && v2->isNew && (v0->isNew ^ v1->isNew)) 
+      return true;
+    return false;
+  }
 
   void MeshResampler::upsample( HalfedgeMesh& mesh )
   {
@@ -393,6 +470,86 @@ namespace CGL
     // 4. Flip any new edge that connects an old and new vertex.
 
     // 5. Copy the new vertex positions into final Vertex::position.
+
+    // step 1
+    for (auto v = mesh.verticesBegin(); v != mesh.verticesEnd(); v++) {
+      v->isNew = false;
+      if (v->isBoundary()) {
+        v->newPosition = 3.0 / 4.0 * v->position + 
+            1.0 / 8.0 * v->halfedge()->twin()->vertex()->position + 
+            1.0 / 8.0 * v->halfedge()->next()->next()->vertex()->position;
+        continue;
+      }
+      double n = v->degree();
+      double u = (n == 3.0) ? 3.0 / 16.0 : 3.0 / (8.0 * n);
+      v->newPosition = (1 - n * u) * v->position;
+      auto h = v->halfedge();
+      // iterate neighbor vertices
+      do {
+        v->newPosition += u * h->twin()->vertex()->position;
+        h = h->twin()->next();
+      } while (h != v->halfedge());
+    }
+
+
+    // step 2
+    for (auto e = mesh.edgesBegin(); e != mesh.edgesEnd(); e++) {
+      e->isNew = false;
+      if (e->isBoundary()) {
+        e->newPosition = (e->halfedge()->vertex()->position 
+            + e->halfedge()->twin()->vertex()->position) / 2.0;
+        continue;
+      }
+      auto v0 = e->halfedge()->vertex();
+      auto v1 = e->halfedge()->twin()->vertex();
+      auto v2 = e->halfedge()->next()->next()->vertex();
+      auto v3 = e->halfedge()->twin()->next()->next()->vertex();
+      e->newPosition = (3.0 * (v0->position + v1->position) + (v2->position + v3->position)) / 8.0;
+    }
+
+
+    // step 3
+    std::vector<EdgeIter> reserved_edges;
+    for (auto e = mesh.edgesBegin(); e != mesh.edgesEnd(); e++) {
+      if (e->isNew) continue;
+      // split edge sets new edges all to be new, but some
+      // of them are actually cut from old edges
+      EdgeIter e_reserve;
+      auto v_new = splitEdgeWithReserve(mesh, e, e_reserve);
+      v_new->isNew = true;
+      reserved_edges.emplace_back(std::move(e_reserve));
+    }
+    for (auto &e : reserved_edges) {
+      e->isNew = false;
+    }
+
+
+
+    // step 4
+    for (auto e = mesh.edgesBegin(); e != mesh.edgesEnd(); e++) {
+      if (is_flip_ok(e)) 
+        mesh.flipEdge(e);
+    }
+    for (auto &e : reserved_edges) {
+      e->isNew = true;
+    }
+
+    // step 5 
+
+    // old vertices
+    for (auto v = mesh.verticesBegin(); v != mesh.verticesEnd(); v++) {
+      if (!v->isNew) {
+        v->position = v->newPosition;
+      }
+    }
+    // new vertices on shared edges
+    for (auto e = mesh.edgesBegin(); e != mesh.edgesEnd(); e++) {
+      if (!e->isNew) {
+        VertexIter v = e->halfedge()->vertex()->isNew ? 
+            e->halfedge()->vertex() : e->halfedge()->twin()->vertex();
+        v->position = e->newPosition;
+      }
+    }
 
   }
 }

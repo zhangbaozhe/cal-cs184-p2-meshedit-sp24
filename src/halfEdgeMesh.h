@@ -495,7 +495,6 @@ public:
       if (!h->face()->isBoundary()) {
         d++; // increment degree
       }
-
       // move to the next halfedge around the vertex
       h = h->twin()->next();
     } while (h != _halfedge); // done iterating over halfedges
