@@ -1,6 +1,7 @@
 #include "student_code.h"
 #include "mutablePriorityQueue.h"
 
+#include <cassert>
 #include <chrono>
 #define START_TICK auto t1 = chrono::high_resolution_clock::now()
 #define END_TICK do { \
@@ -239,8 +240,65 @@ namespace CGL
     // TODO Part 5.
     // This method should split the given edge and return an iterator to the newly inserted vertex.
     // The halfedge of this vertex should point along the edge that was split, rather than the new edges.
-    if (e0->isBoundary())
-      return e0->halfedge()->vertex();
+    if (e0->isBoundary()) {
+      auto h0 = e0->halfedge();
+      auto h1 = h0->next();
+      auto h2 = h1->next();
+      auto h3 = h0->twin(); // virtual boundary halfedge
+      auto h4 = h1->twin();
+      auto h5 = h2->twin();
+
+      auto v0 = h0->vertex();
+      auto v1 = h1->vertex();
+      auto v2 = h2->vertex();
+
+      auto e1 = h1->edge();
+      auto e2 = h2->edge();
+
+      auto f0 = h0->face();
+      auto f1 = h3->face();
+      // assert(f1->isBoundary());
+
+      // allocating
+      auto v_new0 = newVertex();
+
+      auto e_new0 = newEdge();
+      auto e_new1 = newEdge();
+
+      auto f_new0 = newFace();
+
+      auto h_new0 = newHalfedge();
+      auto h_new1 = newHalfedge();
+      auto h_new2 = newHalfedge();
+      auto h_new3 = newHalfedge();
+
+      // modifying
+      v_new0->position = (v0->position + v1->position) / 2;
+      v_new0->halfedge() = h_new2;
+      v0->halfedge() = h0;
+      v1->halfedge() = h1;
+      v2->halfedge() = h2;
+
+      e0->halfedge() = h0;
+      e_new0->halfedge() = h_new0;
+      e_new1->halfedge() = h_new2;
+
+      f0->halfedge() = h0;
+      f_new0->halfedge() = h_new2;
+
+      h0->setNeighbors(h_new0, h3, v0, e0, f0);
+      h_new0->setNeighbors(h2, h_new1, v_new0, e_new0, f0);
+      h2->setNeighbors(h0, h5, v2, e2, f0);
+
+      h_new1->setNeighbors(h_new2, h_new0, v2, e_new0, f_new0);
+      h_new2->setNeighbors(h1, h_new3, v_new0, e_new1, f_new0);
+      h1->setNeighbors(h_new1, h4, v1, e1, f_new0);
+
+      h3->setNeighbors(h3->next(), h0, v_new0, e0, f1);
+      h_new3->setNeighbors(h3, h_new2, v1, e_new1, f1);
+
+      return v_new0;
+    }
 
     auto h0 = e0->halfedge();
     auto h1 = h0->next();
