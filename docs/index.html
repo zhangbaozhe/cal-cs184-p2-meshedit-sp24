@@ -22,17 +22,23 @@
     background: hsl(30,80%,90%);
   }
 </style>
-<title>Computer Graphics Rasterizer</title>
+<title>Computer Graphics Mesh Edit</title>
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
 <link href="https://fonts.googleapis.com/css?family=Open+Sans|Source+Sans+Pro" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.7.1/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.7.1/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.7.1/contrib/auto-render.min.js"></script>
 </head>
 
 
 <body>
 
+
+
 <h1 align="middle">Computer Graphics, Spring 2024</h1>
-<h1 align="middle">Homework 3: Rasterizer</h1>
-<h2 align="middle">Baozhe ZHANG (SSE, 119010421)</h2>
+<h1 align="middle">Mesh Edit</h1>
+<h2 align="middle">Baozhe ZHANG</h2>
 
 <br><br>
 
@@ -40,25 +46,22 @@
 
 <h2 align="middle">Overview</h2>
 <p>
-  In this assignment, we were asked to achieve a software
-  rasterizer including features such as drawing triangles, 
-  supersampling, hierarchical transforms, and texture mapping 
-  with antialiasing. 
-  I have achieved the following tasks:
+  In this assignment, we were asked to implement a mesh editor with the following 
+  functionalities:
   <ul>
-    <li>Task 1: Drawing single-color triangles</li>
-    <li>Task 2: Antialiasing by supersampling</li>
-    <li>Task 3: Transformations</li>
-    <li>Task 4: Barycentric color interpolation</li>
-    <li>Task 5: "Pixel sampling" for texture mappingexture mapping</li>
-    <li>Task 6: "Level sampling" with mipmaps for texture mapping</li>
+    <li>Task 1: Bezier Curves with 1D de Casteljau Subdivision</li>
+    <li>Task 2: Bezier Surfaces with Separable 1D de Casteljau</li>
+    <li>Task 3: Area-Weighted Vertex Normals</li>
+    <li>Task 4: Edge Flip</li>
+    <li>Task 5: Edge Split (Boundary cases implemented)</li>
+    <li>Task 6: Loop Subdivision for Mesh Upsampling (Boundary cases implemented)</li>
   </ul>
   
 </p>
 
-<h2 align="middle">Section I: Rasterization</h2>
+<h2 align="middle">Section I: Bezier Curves and Surfaces</h2>
 
-<h3 align="middle">Part 1: Drawing single-color triangles</h3>
+<h3 align="middle">Part 1: Bezier Curves with 1D de Casteljau Subdivision</h3>
 
 
 <p>
@@ -76,7 +79,7 @@
 </div>
 
 
-<h3 align="middle">Part 2: Antialiasing triangles</h3>
+<h3 align="middle">Part 2: Bezier Surfaces with Separable 1D de Casteljau</h3>
 
 <p>
   In this part, I have achieved basic supersampling techniques to reduce the aliasing effects in the rasterized images.
@@ -129,9 +132,10 @@
   </table>
 </div>
 
+<h2 align="middle">Section II: Triangle Meshes and Half-Edge Data Structure</h2>
 
 
-<h3 align="middle">Part 3: Transforms</h3>
+<h3 align="middle">Part 3: Area-Weighted Vertex NormalsTransforms</h3>
 
 <p>
   In this part, I made a dancing cube man by changing its legs' and arm's poses. Here's the screenshot.
@@ -144,9 +148,8 @@
 </div>
 
 
-<h2 align="middle">Section II: Sampling</h2>
 
-<h3 align="middle">Part 4: Barycentric coordinates</h3>
+<h3 align="middle">Part 4: Edge Flip</h3>
 
 <p>
   The barycentric coordinates describe a coordinating system with its x and y axis as the two edge vectors of a triangle. Suppose we have a triangle with vertices a, b, and c. We can construct a coordinate system with vector a -> b and vector a -> c. By this definition, if a point is in the edge of b -> c then the sum of its coordinate must be 1. 
@@ -176,7 +179,7 @@
 </div>
 
 
-<h3 align="middle">Part 5: "Pixel sampling" for texture mapping</h3>
+<h3 align="middle">Part 5: Edge Split (Boundary cases implemented)</h3>
 
 <p>
   Given the UV coordinates of the vertices of a triangle, the pixel sampling for texture mapping is to sample colors for the given triangle and map the colors on it.
@@ -230,7 +233,7 @@
 </p>
 
 
-<h3 align="middle">Part 6: "Level sampling" with mipmaps for texture mapping</h3>
+<h3 align="middle">Part 6: Loop Subdivision for Mesh Upsampling (Boundary cases implemented)</h3>
 
 <p>
   Level sampling is that we store different level of resolution of the textures of an image to the memory first and then selecting the corresponding level based on the size of the sampling area in the texture space (or how much the sampling area across the texture space). If the sampling are is large (i.e., one pixel sampling on large texture area), we may select a low resolution texture and save the computation of applying the average filter. 
@@ -275,5 +278,21 @@
 
 
 
+
+
+
+<script>
+  renderMathInElement(
+    document.body,
+    {
+      delimiters: [
+        { left: "$$", right: "$$", display: true },
+        { left: "\\[", right: "\\]", display: true },
+        { left: "$", right: "$", display: false },
+        { left: "\\(", right: "\\)", display: false }
+      ]
+    }
+  );
+</script>
 </body>
 </html>
