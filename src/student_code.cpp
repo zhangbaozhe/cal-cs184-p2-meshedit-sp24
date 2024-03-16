@@ -106,23 +106,6 @@ namespace CGL
     return result;
   }
 
-  // helper function for getting the area of a face
-  double area(const FaceIter &f) {
-    HalfedgeCIter h = f->halfedge();
-    Vector3D a = h->vertex()->position;
-    Vector3D b = h->next()->vertex()->position;
-    Vector3D c = h->next()->next()->vertex()->position;
-    return cross(b - a, c - a).norm() / 2;
-  }
-
-  double area(FaceCIter f) {
-    HalfedgeCIter h = f->halfedge();
-    Vector3D a = h->vertex()->position;
-    Vector3D b = h->next()->vertex()->position;
-    Vector3D c = h->next()->next()->vertex()->position;
-    return cross(b - a, c - a).norm() / 2;
-  }
-
   /**
    * Evaluates the Bezier patch at parameter (u, v)
    *
@@ -145,6 +128,23 @@ namespace CGL
     return result;
   }
 
+  // helper function for getting the area of a face
+  double area(const FaceIter &f) {
+    HalfedgeCIter h = f->halfedge();
+    Vector3D a = h->vertex()->position;
+    Vector3D b = h->next()->vertex()->position;
+    Vector3D c = h->next()->next()->vertex()->position;
+    return cross(b - a, c - a).norm() / 2;
+  }
+
+  double area(FaceCIter f) {
+    HalfedgeCIter h = f->halfedge();
+    Vector3D a = h->vertex()->position;
+    Vector3D b = h->next()->vertex()->position;
+    Vector3D c = h->next()->next()->vertex()->position;
+    return cross(b - a, c - a).norm() / 2;
+  }
+
   Vector3D Vertex::normal( void ) const
   {
     // TODO Part 3.
@@ -158,18 +158,13 @@ namespace CGL
     HalfedgeCIter h = this->halfedge();
 
     do {
-      
+      if (h->isBoundary()) break;      
+
       FaceCIter f = h->face();
-      if (f->isBoundary()) {
-        h = h->twin()->next();
-        continue;
-      }
       double area = ::area(f);
       normal += area * f->normal();
-
       h = h->twin()->next();
     } while(h != this->halfedge());
-
     return normal.unit();
   }
 
@@ -475,9 +470,15 @@ namespace CGL
     for (auto v = mesh.verticesBegin(); v != mesh.verticesEnd(); v++) {
       v->isNew = false;
       if (v->isBoundary()) {
-        v->newPosition = 3.0 / 4.0 * v->position + 
-            1.0 / 8.0 * v->halfedge()->twin()->vertex()->position + 
-            1.0 / 8.0 * v->halfedge()->next()->next()->vertex()->position;
+        v->newPosition = 3.0 / 4.0 * v->position;
+        auto h = v->halfedge();
+        // find surrounding vertex around v but on the edge
+        do {
+          if (h->isBoundary() || h->twin()->isBoundary()) {
+            v->newPosition += 1.0 / 8.0 * h->next()->vertex()->position;
+          }
+          h = h->twin()->next();
+        } while (h != v->halfedge());
         continue;
       }
       double n = v->degree();

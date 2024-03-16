@@ -6,10 +6,10 @@
     "configurations": [
         {
             "name": "(gdb) Launch",
-            "type": "cppdbg",
+            "type": "",
             "request": "launch",
-            "program": "${workspaceRoot}/build/draw",
-            "args": ["svg/hardcore"],
+            "program": "${workspaceRoot}/build/meshedit",
+            "args": ["dae/beetle.dae"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

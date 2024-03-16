@@ -26,9 +26,9 @@
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
 <link href="https://fonts.googleapis.com/css?family=Open+Sans|Source+Sans+Pro" rel="stylesheet">
 
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.7.1/katex.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.7.1/katex.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.7.1/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
 </head>
 
 
@@ -65,86 +65,210 @@
 
 
 <p>
-  In this task, I have achieved basic rasterization methods for single-color triangles.
-  
-  For this part, the basic procedures to rasterize a triangle with a single color are: defining the rotation of the vertices (i.e., a -> b -> c), generating a bounding box for the triangle, performing in-triangle test and setting the given color for each pixel in the triangle.
-
-  The achieved basic implementation is exactly that checks each sample within the bounding box. 
+  A Bezier curve is defined by its control points. If it has two control points, 
+  $P_0$ and $P_1$, then the curve parametrized by $t$ is simply a linear 
+  interpolation $$B(t) = P_0 + t  (P_1 - P_0) = (1 - t) P_0 + t P_1, \quad t \in [0, 1]$$
+  If the curve has three control points $P_0$, $P_1$, and $P_3$, the curve can be 
+  interpreted as performing linear interpolation on two interpolated points generated 
+  on edge $P_0P_1$ and $P_1P_2$. The algebraic form can be 
+  $$B(t) = (1-t)[(1 - t) P_0 + t P_1] + t[(1 - t) P_1 + t P_2], \quad t \in [0, 1]$$
+  For multiple control points, the idea to generate the Bezier curve
+  can be performing multiple time linear interpolation level by level recursively until we 
+  get only one interpolated point and that is the point on the Bezier curve.
+  Consequently, this recursive interpolation method is exactly the 1D de Casteljau
+  algorithm to evaluate the Bezier curve.
 </p>
 
-<div align="middle">
-  <img src="images/task1.png" align="middle" width="800px" />
-  <figcaption align="middle">
-    <b>Figure 1:</b> Triangle rasterization for solid triangles of different forms and colors. The toggle parameters are set to default (i.e., 1x sample rate, nearest pixel sampling, etc.). Note that this basic implementation suffers from aliasing (jaggies) as in the zoomed view of the green triangle corner.
-</div>
-
-
-<h3 align="middle">Part 2: Bezier Surfaces with Separable 1D de Casteljau</h3>
-
 <p>
-  In this part, I have achieved basic supersampling techniques to reduce the aliasing effects in the rasterized images.
-  
-  The basic algorithm for this part is simple. Suppose we have a target image with the size of width x height. The data structure for the implemented algorithm is to simply allocate a larger sample buffer, i.e.,  
-  <pre><code>
-    std::vector&ltColor&gt sample_buffer(sample_rate * (width * height));
-  </code></pre>
-  Each "big" sampled pixel is divided into a square with length of <code>sqrt(sample_rate)</code> with number of <code>sample_rate</code> "sub" supersample "small" pixels.
-
-  The different triangle rasterization processes are performed on this 1d <code>sample_buffer</code>. For each frame, when the rasterization ends, the method 
-  <pre><code>
-    RasterizerImp::resolve_to_framebuffer()
-  </code></pre>
-  will be called. In this method, the 2D average filter is applied to the "enlarged" sample buffer. For each supersampling group (i.e., the square area), this method will calculate a averaged color information based on the "sub" pixels in this group and set this color to the original pixel location (via setting the <code>unsigned char</code> R, G, and B values to  <code>rgb_framebuffer_target</code>).
-  For this part, the tricky part is to get the index of each "sub" supersampled pixel right.
+  In my implementation, it simply performs the linear interpolation for the current 
+  point and next point. The code is similar to
+  <pre>
+    <code>
+  for (size_t i = 0; i &lt; points.size() - 1; i++) {
+    Vector2D interpolated_point = (1 - t) * points[i] + t * points[i + 1];
+    results.emplace_back(std::move(interpolated_point));
+  }
+    </code>
+  </pre>
+  In my evaluation, I created a bzc file with the following content:
+  <pre>
+    <code>
+  6
+  0.200 0.200   0.300 0.400   0.500 0.500   0.700 0.400  0.900 0.300 1.100 0.200
+    </code>
+  </pre>
+  which has 6 control points. The figures are shown below.
 </p>
 
 <div align="middle">
   <table width="100%">
     <tr>
+      <!-- first row -->
       <td>
-        <img src="images/task2-1.png" align="middle" width="400px"/>
+        <img src="images/part1-0.png" align="middle" width="200px"/>
         <figcaption align="middle">
-          <b>Figure 2a:</b> Sample rate = 1. "Jaggies" are clear at the edge of the triangles.
+          <b>Figure 1a:</b> Six control points of the customized Bezier curve
         </figcaption>
       </td>
       <td>
-        <img src="images/task2-2.png" align="middle" width="400px"/>
+        <img src="images/part1-1.png" align="middle" width="200px"/>
         <figcaption align="middle">
-          <b>Figure 2b:</b> Sample rate = 4. Supersampling reduces the aliasing effect.
+          <b>Figure 1b:</b> 1st de Casteljau evaluation
+        </figcaption>
+      </td>
+      <td>
+        <img src="images/part1-2.png" align="middle" width="200px"/>
+        <figcaption align="middle">
+          <b>Figure 1c:</b> 2nd de Casteljau evaluation
+        </figcaption>
+      </td>
+      <td>
+        <img src="images/part1-3.png" align="middle" width="200px"/>
+        <figcaption align="middle">
+          <b>Figure 1d:</b> 3rd de Casteljau evaluation
         </figcaption>
       </td>
     </tr>
     <br>
     <tr>
+      <!-- second row -->
       <td>
-        <img src="images/task2-3.png" align="middle" width="400px"/>
+        <img src="images/part1-4.png" align="middle" width="200px"/>
         <figcaption align="middle">
-          <b>Figure 2c:</b> Sample rate = 9. Higher supersampling rate further reduces the aliasing.
+          <b>Figure 1e:</b> 4th de Casteljau evaluation
         </figcaption>
       </td>
       <td>
-        <img src="images/task2-4.png" align="middle" width="400px"/>
+        <img src="images/part1-5.png" align="middle" width="200px"/>
         <figcaption align="middle">
-          <b>Figure 2d:</b> Sample rate = 16.
+          <b>Figure 1f:</b> 5th de Casteljau evaluation
+        </figcaption>
+      </td>
+      <td>
+        <img src="images/part1-6.png" align="middle" width="200px"/>
+        <figcaption align="middle">
+          <b>Figure 1g:</b> Customized Bezier curve
+        </figcaption>
+      </td>
+      <td>
+        <img src="images/part1-7.png" align="middle" width="200px"/>
+        <figcaption align="middle">
+          <b>Figure 1h:</b> Customized Bezier curve with control points slightly moved
         </figcaption>
       </td>
     </tr>
   </table>
 </div>
 
-<h2 align="middle">Section II: Triangle Meshes and Half-Edge Data Structure</h2>
-
-
-<h3 align="middle">Part 3: Area-Weighted Vertex NormalsTransforms</h3>
+<h3 align="middle">Part 2: Bezier Surfaces with Separable 1D de Casteljau</h3>
 
 <p>
-  In this part, I made a dancing cube man by changing its legs' and arm's poses. Here's the screenshot.
+  Bezier surfaces can be regarded as a mapping $f: (u, v)\in\mathbb{R}^2 \rightarrow \mathbb{R}^3$. 
+  In this part, the idea to created a Bezier surface is to use the first set ($u$ dimension) of control points
+  to create a set of Bezier curves and the points on these curves can be regarded as another set of control points 
+  for the Bezier curves at the $v$ dimension. 
+</p>
+
+<p>
+  To be more specifically, we have a control point set in <code>std::vector&lt; std::vector&lt; Vector3D &gt; &gt;</code>.
+  
+  The outer vector means the row of control points $P_{i0},\dots,P_{i(n-1)}$. Each row can 
+  generate a Bezier curve parametrized by $u$. The Bezier curves generated from each row 
+  can generate another set of points (dynamically) say $B_0(u), \dots, B_{n-1}(u)$ by setting the parameter $u$. 
+  We can generate Bezier curves from these control points parametrized by $v$. By
+  realizing these, we have accomplished this Bezier surface 2D mapping.
+</p>
+
+<p>
+  In the implementation part, the code for <code>BezierPatch::evaluateStep(...)</code> is actually
+  the same for the code in Part 1. In the code of <code>>BezierPatch::evaluate1D(...)</code>
+  I have implemented both methods of iterative 1D de Casteljau evaluations and algebraic forms 
+  of the Bezier curve, since the algebraic form is just 
+  $$B(t) = \sum_{i=0}^n \text{binomial}(n, i) (1-t)^{n-i}t^i P_i $$
+  The code for this is shown as below
+  <pre>
+    <code>
+  constexpr size_t binomial_coefficient(size_t n, size_t k) noexcept {
+    return 
+      (k &gt; n) ? 0 : 
+      (k == 0 || k == n) ? 1 :
+      (k == 1 || k == n - 1) ? n : 
+      (k + k &lt; n) ? 
+        (binomial_coefficient(n-1, k-1) * n) / k : 
+        (binomial_coefficient(n-1, k) * n) / (n-k);
+  }
+  Vector3D BezierPatch::evaluate1D(std::vector&lt;Vector3D&gt; const &points, double t) const
+  {
+    Vector3D result;
+  #ifdef IS_ALGEBRAIC
+    const size_t n = points.size() - 1;
+    for (size_t i = 0; i &lt; points.size(); i++) {
+      result += (double)binomial_coefficient(n, i) * pow(1-t, n-i) * pow(t, i) * points[i];
+    }
+  #else
+    std::vector&lt;Vector3D&gt; temp = points;
+    for (size_t i = 0; i &lt; points.size() - 1; i++) {
+      temp = evaluateStep(temp, t);
+    }    
+    result = temp[0];
+  #endif
+    return result;
+  }
+    </code>
+  </pre>
+  A side note is that at first I thought the algebraic form will be much faster than 
+  the iterative evaluation one, since there are less memory allocation, but the performance 
+  are almost the same. Maybe if the number of control points are known at compile time
+  the constexpr function can take its advantage during compile time. The evaluated 
+  teapot figure is shown below.
 </p>
 
 <div align="middle">
-  <img src="images/task3.png" align="middle" width="800px" />
+  <img src="images/part2.png" width="800px"/>
   <figcaption align="middle">
-    <b>Figure 3:</b> Dancing cube man.
+    <b>Figure 2:</b> Bezier surfaces of the teapot
+  </figcaption>
+</div>
+
+
+<h2 align="middle">Section II: Triangle Meshes and Half-Edge Data Structure</h2>
+
+
+<h3 align="middle">Part 3: Area-Weighted Vertex Normals</h3>
+
+<p>
+  This part is to iterate faces around a vertex and generate the area-weighted
+  normal for the vertex. Basically, the code is similar to this
+  <pre>
+    <code>
+  do {
+    FaceCIter f = h->face();
+    double area = ::area(f);
+    normal += area * f->normal();
+    h = h->twin()->next();
+  } while(h != this->halfedge());
+    </code>
+  </pre>
+  Below shows the difference between flat and Phong shading.
+</p>
+
+<div align="middle">
+  <table width="100$">
+    <tr>
+      <td>
+        <img src="images/part3-1.png" width="500px"/>
+        <figcaption align="middle">
+          <b>Figure 3a:</b> Flat shading
+        </figcaption>
+      </td>
+      <td>
+        <img src="images/part3-2.png" width="500px"/>
+        <figcaption align="middle">
+          <b>Figure 3b:</b> Phong shading
+        </figcaption>
+      </td>
+    </tr>
+  </table>
 </div>
 
 
@@ -152,26 +276,79 @@
 <h3 align="middle">Part 4: Edge Flip</h3>
 
 <p>
-  The barycentric coordinates describe a coordinating system with its x and y axis as the two edge vectors of a triangle. Suppose we have a triangle with vertices a, b, and c. We can construct a coordinate system with vector a -> b and vector a -> c. By this definition, if a point is in the edge of b -> c then the sum of its coordinate must be 1. 
-
-  The barycentric interpolation is a linear combination with the weights of the barycentric coordinate indices and other quantities such as the colors of the vertices on a triangle.
-
-  Below shows two figures of an interpolated triangle and a color wheel.
+  The important part for this edge flip task is to correctly set every triangle's
+  halfedges, vertices, edges, and faces. Some of the variables may not be changed
+  if you forget to set them at the first time. My implementation simply follows the 
+  recommendation from the handout. 
+  <pre>
+    <code>
+  EdgeIter HalfedgeMesh::flipEdge( EdgeIter e0 )
+  {
+    if (e0->isBoundary())
+      return e0;
+    auto h0 = e0->halfedge();
+    auto h1 = h0->next();
+    auto h2 = h1->next();
+    auto h3 = h0->twin();
+    auto h4 = h3->next();
+    auto h5 = h4->next();
+    auto h6 = h1->twin();
+    auto h7 = h2->twin();
+    auto h8 = h4->twin();
+    auto h9 = h5->twin();
+    auto v0 = h0->vertex();
+    auto v1 = h3->vertex();
+    auto v2 = h2->vertex();
+    auto v3 = h5->vertex();
+    auto e1 = h1->edge();
+    auto e2 = h2->edge();
+    auto e3 = h4->edge();
+    auto e4 = h5->edge();
+    auto f0 = h0->face();
+    auto f1 = h3->face();
+    // changing
+    h0->setNeighbors(h1, h3, v3, e0, f0);
+    h1->setNeighbors(h2, h7, v2, e2, f0);
+    h2->setNeighbors(h0, h8, v0, e3, f0);
+    h3->setNeighbors(h4, h0, v2, e0, f1);
+    h4->setNeighbors(h5, h9, v3, e4, f1);
+    h5->setNeighbors(h3, h6, v1, e1, f1);
+    h6->setNeighbors(h6->next(), h5, v2, e1, h6->face());
+    h7->setNeighbors(h7->next(), h1, v0, e2, h7->face());
+    h8->setNeighbors(h8->next(), h2, v3, e3, h8->face());
+    h9->setNeighbors(h9->next(), h4, v1, e4, h9->face());
+    v0->halfedge() = h2;
+    v1->halfedge() = h5;
+    v2->halfedge() = h1;
+    v3->halfedge() = h4;
+    e0->halfedge() = h0;
+    e1->halfedge() = h5;
+    e2->halfedge() = h1;
+    e3->halfedge() = h2;
+    e4->halfedge() = h4;
+    f0->halfedge() = h0;
+    f1->halfedge() = h3;
+    return e0;
+  }
+    </code>
+  </pre>
+  Below shows the difference before and after edge 
+  flip operations.
 </p>
 
 <div align="middle">
   <table width="100%">
     <tr>
       <td>
-        <img src="images/task4-1.png" align="middle" width="400px"/>
+        <img src="images/part4-1.png" align="middle" width="500px"/>
         <figcaption align="middle">
-          <b>Figure 4a:</b> A single triangle colored using barycentric coordinates. The reference values are the unitary RGB channels (1,0,0), (0,1,0), (0,0,1) located at each of the vertices.
+          <b>Figure 4a:</b> Teapot mesh before edge flipping
         </figcaption>
       </td>
       <td>
-        <img src="images/task4-2.png" align="middle" width="400px"/>
+        <img src="images/part4-2.png" align="middle" width="500px"/>
         <figcaption align="middle">
-          <b>Figure 4b:</b> A color wheel composed by small triangles with different colors located on the vertices.
+          <b>Figure 4b:</b> Teapot mesh after some edge flipping
         </figcaption>
       </td>
     </tr>
@@ -182,98 +359,135 @@
 <h3 align="middle">Part 5: Edge Split (Boundary cases implemented)</h3>
 
 <p>
-  Given the UV coordinates of the vertices of a triangle, the pixel sampling for texture mapping is to sample colors for the given triangle and map the colors on it.
-  The UV coordinates are defined in the texture space. 
-
-  We CANNOT do (1) get the color on the 3 vertices by sample at the texture map and (2) fill the triangle with barycentric interpolated color from the 3 vertices. This is WRONG, since the most of the texture information for this triangle is lost, because on cannot determine the interpolated color is the wanted texture.
-
-  Instead, the sampling procedure is performed in the texture map space. The UV coordinate of the sample point in the triangle should first be interpolated by using barycentric interpolation. Then for this interpolated UV coordinated, it can be sampled on the texture map to get the desired color.
-
-  The process of getting the desired color needs sampling on the (discrete) texture map. For a given (continuous) UV coordinate, a simple way, nearest method, is to find the "nearest" point of the texture map, e.g., UV (element between 0 and 1) -> (400.1, 500.8) (multiplied with the width and height) -> (400, 501). This is simple but can potentially cause "jaggies".
-  
-  Similar to the ideas of the average filter in the supersampling, one can apply an average filter on the texture map to get a weighted averaged color in the pixel sampling process to achieve more smooth image. Bilinear method is to linearly interpolate the four texel around a given UV coordinate. The corresponding weights are the distance of the four nearest texels' distance w.r.t. the given UV coordinate.
+  The core idea for this edge split operation is to allocate necessary objects 
+  for for the new triangles. For the boundary part, it shares the same idea with 
+  the 2 &rightarrow; 4, except that it does not need to allocate more triangles. 
+  In the boundary, a split operation creates two triangles, but we need to take 
+  care of the halfedges on the virtual boundary face. A very subtle bug occurred 
+  in my code and eventually affected my code in Part 6. I did not set the new halfedges 
+  to some of the vertices, which made the vertex position update not correct in the 
+  Part 6 creating lower area in the subdivided mesh. Below shows some of the demo figures of 
+  this part.
 </p>
 
 <div align="middle">
   <table width="100%">
     <tr>
       <td>
-        <img src="images/task5-n-1.png" align="middle" width="400px"/>
+        <img src="images/part5-1.png" align="middle" width="500px"/>
         <figcaption align="middle">
-          <b>Figure 5a:</b> Nearest sampling. Sample rate = 1. "Jaggies" are clear.
+          <b>Figure 5a:</b> Original beetle mesh 
         </figcaption>
       </td>
       <td>
-        <img src="images/task5-b-1.png" align="middle" width="400px"/>
+        <img src="images/part5-2.png" align="middle" width="500px"/>
         <figcaption align="middle">
-          <b>Figure 5b:</b> Bilinear sampling. Sample rate = 1. Aliasing effects are reduced.
+          <b>Figure 5b:</b> Beetle mesh with edges splitted
         </figcaption>
       </td>
     </tr>
     <br>
     <tr>
       <td>
-        <img src="images/task5-n-16.png" align="middle" width="400px"/>
+        <img src="images/part5-3.png" align="middle" width="500px"/>
         <figcaption align="middle">
-          <b>Figure 5c:</b> Nearest sampling. Sample rate = 16.
+          <b>Figure 5c:</b> Beetle mesh with edges splitted and flipped
         </figcaption>
       </td>
       <td>
-        <img src="images/task5-b-16.png" align="middle" width="400px"/>
+        <img src="images/part5-4.png" align="middle" width="500px"/>
         <figcaption align="middle">
-          <b>Figure 5d:</b> Bilinear sampling. Sample rate = 16.
+          <b>Figure 5d:</b> Beetle mesh with boundary edges splitted
         </figcaption>
       </td>
     </tr>
   </table>
 </div>
-
-<p>
-  From the above figures, we can see that at a low sample rate, the bilinear method clearly outperforms nearest sampling method reducing the antialiasing effects. At a higher sample rate (e.g., 16), the two methods have smaller difference since the supersampling method already applies a averaging filter on the screen space, making the bilinear method not that distinguishable.
-</p>
 
 
 <h3 align="middle">Part 6: Loop Subdivision for Mesh Upsampling (Boundary cases implemented)</h3>
 
 <p>
-  Level sampling is that we store different level of resolution of the textures of an image to the memory first and then selecting the corresponding level based on the size of the sampling area in the texture space (or how much the sampling area across the texture space). If the sampling are is large (i.e., one pixel sampling on large texture area), we may select a low resolution texture and save the computation of applying the average filter. 
-
-  Level sampling needs more memory space to avoid computation for antialiasing. Pixel sampling though needs more computation for antialiasing but less memory space.
+  In this part, the loop subdivision technique for mesh upsampling is implemented. 
+  Basically we first store the new vertex positions of the original and to-be-allocated
+  vertices. Then we perform some split and flip operations on edges. Finally, we update 
+  the vertex positions. The sharp corners in most of the meshes will become more smooth
+  after some rounds of loop subdivision. However, some of the corners (e.g. in the cube mesh)
+  does not behave symmetrically. This is probably because the initial distribution 
+  is asymmetric. After performing pre-splitting on each face, the subdivided cube mesh
+  looks more symmetric and smooth.
 </p>
 
 <div align="middle">
   <table width="100%">
     <tr>
       <td>
-        <img src="images/task6-ln-pn.png" align="middle" width="400px"/>
+        <img src="images/part6-1.png" align="middle" width="500px"/>
         <figcaption align="middle">
-          <b>Figure 6a:</b> LSM = Nearest; PSM = Nearest.
-        </figcaption>
+          <b>Figure 6a:</b> Original cube mesh 
+        </figcaption> 
       </td>
       <td>
-        <img src="images/task6-ln-pb.png" align="middle" width="400px"/>
+        <img src="images/part6-2.png" align="middle" width="500px"/>
         <figcaption align="middle">
-          <b>Figure 6b:</b> LSM = Nearest; PSM = Bilinear.
+          <b>Figure 6b:</b> Cube mesh after subdivision with asymmetric corners
         </figcaption>
       </td>
     </tr>
     <br>
     <tr>
       <td>
-        <img src="images/task6-lb-pn.png" align="middle" width="400px"/>
+        <img src="images/part6-3.png" align="middle" width="500px"/>
         <figcaption align="middle">
-          <b>Figure 6c:</b> LSM = Bilinear; PSM = Nearest.
+          <b>Figure 6c:</b> Cube mesh after splitting edges at each face
         </figcaption>
       </td>
       <td>
-        <img src="images/task6-lb-pb.png" align="middle" width="400px"/>
+        <img src="images/part6-4.png" align="middle" width="500px"/>
         <figcaption align="middle">
-          <b>Figure 6d:</b> LSM = Bilinear; PSM = Bilinear.
+          <b>Figure 6d:</b> Splitted cube mesh after subdivision (more symmetric)
         </figcaption>
       </td>
     </tr>
   </table>
 </div>
+
+<p>
+  I have also implemented loop subdivision for boundary cases. The vertex update 
+  rule is slightly different than the usual ones. I referred to the Pixar document 
+  (<a href="https://graphics.pixar.com/library/SEC/supplemental.pdf">link</a>). 
+  For loop subdivision, the update rules for the original vertex and new vertex are listed below
+  <ul>
+    <li>
+      Original vertex: $P_{\text{after}} = \frac{3}{4}P_{\text{before}} + \frac{1}{8}\sum_{i=1}^2P_{\text{surrounding boundary vertex}}^i$
+    </li>
+    <br>
+    <li>
+      New vertex on a shared boundary edge: $P_{\text{after}} = \frac{1}{2}\sum_{i=1}^2P_{\text{vertex on this edge}}^i$
+    </li>
+  </ul>
+  The subdivided beetle mesh is shown below.
+</p>
+
+<div align="middle">
+  <table width="100%">
+    <tr>
+      <td>
+        <img src="images/part6--1.png" align="middle" width="500px"/>
+        <figcaption align="middle">
+          <b>Figure 6a:</b> Original beetle mesh 
+        </figcaption> 
+      </td>
+      <td>
+        <img src="images/part6--2.png" align="middle" width="500px"/>
+        <figcaption align="middle">
+          <b>Figure 6b:</b> Beetle after loop subdivision
+        </figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
 
 
 
